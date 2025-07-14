@@ -2,6 +2,9 @@
 
 Host [SocialService](https://github.com/mattmassicotte/SocialService) on AWS Lambda.
 
+> [!WARNING]
+> Super early phase and currently non-functional.
+
 ## Instructions
 
 - Install swiftly
