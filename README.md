@@ -1,6 +1,6 @@
 # SocialServerLambda
 
-Host [SocialService](https://github.com/mattmassicotte/SocialService) on AWS Lambda.
+Host [SocialServer](https://github.com/mattmassicotte/SocialServer) on AWS Lambda.
 
 > [!WARNING]
 > Super early phase and currently non-functional.
