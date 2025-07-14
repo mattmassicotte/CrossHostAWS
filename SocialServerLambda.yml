@@ -1,0 +1,108 @@
+Parameters:
+
+  BucketName:
+    Type: String
+    Description: S3 bucket name that hosts Lambda content
+
+  Architecture:
+    Type: String
+    Description: Executable architecture for the Lambda function
+    AllowedValues:
+      - x86_64
+      - arm64
+
+Outputs:
+  InvokeURL:
+    Description: "HTTP API URL"
+    Value: !Sub "https://${API}.execute-api.${AWS::Region}.amazonaws.com/${APIStage}"
+
+Resources:
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: "SocialServerFunction Lambda Role"
+      RoleName: "SocialServerFunctionRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+
+  Lambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - !Ref Architecture
+      Code:
+        S3Bucket: !Ref BucketName
+        S3Key: SocialServerFunction.zip
+      Environment:
+        Variables:
+          LOG_LEVEL: debug
+      Description: "Swift function that services requests from API Gateway"
+      FunctionName: SocialServer
+      Handler: SocialServerLambda
+      PackageType: Zip
+      Role: !Sub "${LambdaRole.Arn}"
+      Runtime: "provided.al2"
+
+  LambdaAPIPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub "${Lambda.Arn}"
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${API}/*/*/*"
+
+  LambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: Lambda
+    Properties:
+      LogGroupName: "/aws/lambda/SocialServer"
+      RetentionInDays: 7
+
+  API:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Description: "SocialServer HTTP API"
+      Name: SocialServer
+      ProtocolType: HTTP
+      Version: 1
+
+  APIIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref API
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "${Lambda.Arn}"
+      PayloadFormatVersion: "2.0"
+
+  WebFingerAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref API
+      RouteKey: "GET /.well-known/webfinger"
+      Target: !Sub "integrations/${APIIntegration}"
+
+  HealthAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref API
+      RouteKey: "GET /health"
+      Target: !Sub "integrations/${APIIntegration}"
+
+  APIStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref API
+      AutoDeploy: true
+      Description: "API Test Deployment"
+      StageName: Test
