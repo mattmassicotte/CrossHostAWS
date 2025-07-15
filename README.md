@@ -2,6 +2,8 @@
 
 Host [SocialServer](https://github.com/mattmassicotte/SocialServer) on AWS Lambda.
 
+My current hope is to use S3 and Keyspaces if I can pull it off, falling back to Dynamo if I cannot.
+
 > [!WARNING]
 > Super early phase and currently non-functional.
 

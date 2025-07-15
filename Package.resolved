@@ -1,5 +1,5 @@
 {
-  "originHash" : "234c1a3e4111b42c7ba8ae563037a23ac606592c8604a672644673f0f40f517b",
+  "originHash" : "4b4dedf1611eb231a7857abda61c1d70cf1484f45721afe6e7054b9a54ca6144",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -26,6 +26,15 @@
       "state" : {
         "revision" : "414379b227c3d01b645846be2cb2b423aef352a4",
         "version" : "2.0.0-rc.4"
+      }
+    },
+    {
+      "identity" : "nodeinfo",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mattmassicotte/NodeInfo",
+      "state" : {
+        "branch" : "main",
+        "revision" : "e00ca094fa8fba0d66a9e2f18dea8f88bd1de0a0"
       }
     },
     {
@@ -242,6 +251,15 @@
       "state" : {
         "revision" : "61e4ca4b81b9e09e2ec863b00c340eb13497dac6",
         "version" : "1.5.0"
+      }
+    },
+    {
+      "identity" : "webfinger",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mattmassicotte/WebFinger",
+      "state" : {
+        "branch" : "main",
+        "revision" : "adb10c5a03633f58afff75b3f0fff378c3c44f44"
       }
     }
   ],

@@ -47,6 +47,8 @@ Resources:
       Environment:
         Variables:
           LOG_LEVEL: debug
+          ROUTE_PREFIX: !Ref APIStage
+          DOMAIN: !Sub "${API}.execute-api.${AWS::Region}.amazonaws.com"
       Description: "Swift function that services requests from API Gateway"
       FunctionName: SocialServer
       Handler: SocialServerLambda
@@ -90,6 +92,20 @@ Resources:
     Properties:
       ApiId: !Ref API
       RouteKey: "GET /.well-known/webfinger"
+      Target: !Sub "integrations/${APIIntegration}"
+
+  NodeInfoProfileAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref API
+      RouteKey: "GET /.well-known/nodeinfo"
+      Target: !Sub "integrations/${APIIntegration}"
+
+  NodeInfoDocumentAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref API
+      RouteKey: "GET /nodeinfo/{version}"
       Target: !Sub "integrations/${APIIntegration}"
 
   HealthAPIRoute:

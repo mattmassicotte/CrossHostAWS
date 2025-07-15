@@ -1,37 +1,37 @@
 import Hummingbird
 
-import SocialServer
+import WebFinger
 
 public struct WebFingerController<Context: RequestContext>: Sendable {
-	public init() {
+	let host: String
+	let routingPrefix: String
+
+	public init(host: String, routingPrefix: String) {
+		self.host = host
+		self.routingPrefix = routingPrefix
 	}
-	
+
 	public var endpoints: RouteCollection<Context> {
 		RouteCollection(context: Context.self)
-			.get("/", use: get)
+			.get("/.well-known/webfinger", use: get)
 	}
 
 	func get(request: Request, context: some RequestContext) async throws -> Response {
-		guard let value = request.uri.queryParameters["resource"]?.split(separator: "acct:").last else {
+		guard
+			let resource = request.uri.queryParameters["resource"],
+			let query = WebFingerResource.Query(resource: String(resource))
+		else {
 			return Response(status: .badRequest)
 		}
-
-		let components = value.split(separator: "@")
-		guard components.count == 2 else {
-			return Response(status: .badRequest)
-		}
-
-		let user = components[0]
-//		let server = components[1]
 
 		let descriptor = WebFingerResource.Descriptor(
-			subject: String(user),
+			subject: query.resource,
 			aliases: nil,
 			links: [
 				WebFingerResource.Descriptor.Link(
 					rel: "self",
 					type: "application/activity+json",
-					href: "http://127.0.0.1:8080/users/\(value)"
+					href: "https://\(host)\(routingPrefix)/users/\(query.user)"
 				)
 			]
 		)

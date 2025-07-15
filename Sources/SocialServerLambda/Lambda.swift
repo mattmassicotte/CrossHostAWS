@@ -22,7 +22,9 @@ struct AppLambda: APIGatewayV2LambdaFunction {
 
 		router.add(middleware: ErrorMiddleware())
 
-		let group = router.group("/Test")
+		let prefix = "/" + (env.get("ROUTE_PREFIX") ?? "")
+
+		let group = router.group(RouterPath(prefix))
 
 		group.add(middleware: LogRequestsMiddleware(.info))
 
@@ -30,7 +32,10 @@ struct AppLambda: APIGatewayV2LambdaFunction {
 			HTTPResponse.Status.ok
 		}
 
-		group.addRoutes(WebFingerController<Context>().endpoints, atPath: ".well-known/webfinger")
+		let host = env.get("DOMAIN") ?? "localhost"
+
+		group.addRoutes(WebFingerController<Context>(host: host, routingPrefix: prefix).endpoints, atPath: "/")
+		group.addRoutes(NodeInfoController<Context>(host: host, routingPrefix: prefix).endpoints, atPath: "/")
 
 		return router.buildResponder()
 	}
