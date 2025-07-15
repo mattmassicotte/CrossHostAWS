@@ -3,6 +3,21 @@ import AWSLambdaRuntime
 import HummingbirdLambda
 import Logging
 
+struct Configuration {
+	let host: String
+	let routePrefix: String
+	let scheme: String = "https"
+
+	init(host: String?, routePrefix: String?) {
+		self.host = host ?? "localhost"
+		self.routePrefix = routePrefix ?? ""
+	}
+
+	var urlPrefix: String {
+		"\(scheme)://\(host)/\(routePrefix)"
+	}
+}
+
 @main
 struct AppLambda: APIGatewayV2LambdaFunction {
 	typealias Context = BasicLambdaRequestContext<APIGatewayV2Request>
@@ -15,16 +30,16 @@ struct AppLambda: APIGatewayV2LambdaFunction {
 
 	func buildResponder() -> some HTTPResponder<Context> {
 		let env = Environment()
-		let value = env.get("LOG_LEVEL") ?? "empty"
-		self.logger.info("LOG_LEVEL: \(value)")
+		let config = Configuration(
+			host: env.get("DOMAIN"),
+			routePrefix: env.get("ROUTE_PREFIX")
+		)
 
 		let router = Router(context: Context.self)
 
 		router.add(middleware: ErrorMiddleware())
 
-		let prefix = "/" + (env.get("ROUTE_PREFIX") ?? "")
-
-		let group = router.group(RouterPath(prefix))
+		let group = router.group(RouterPath(config.routePrefix))
 
 		group.add(middleware: LogRequestsMiddleware(.info))
 
@@ -32,10 +47,8 @@ struct AppLambda: APIGatewayV2LambdaFunction {
 			HTTPResponse.Status.ok
 		}
 
-		let host = env.get("DOMAIN") ?? "localhost"
-
-		group.addRoutes(WebFingerController<Context>(host: host, routingPrefix: prefix).endpoints, atPath: "/")
-		group.addRoutes(NodeInfoController<Context>(host: host, routingPrefix: prefix).endpoints, atPath: "/")
+		group.addRoutes(WebFingerController<Context>(configuration: config).endpoints, atPath: "/")
+		group.addRoutes(NodeInfoController<Context>(configuration: config).endpoints, atPath: "/")
 
 		return router.buildResponder()
 	}

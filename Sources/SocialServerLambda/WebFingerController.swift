@@ -3,15 +3,13 @@ import Hummingbird
 import WebFinger
 
 public struct WebFingerController<Context: RequestContext>: Sendable {
-	let host: String
-	let routingPrefix: String
+	let configuration: Configuration
 
-	public init(host: String, routingPrefix: String) {
-		self.host = host
-		self.routingPrefix = routingPrefix
+	init(configuration: Configuration) {
+		self.configuration = configuration
 	}
 
-	public var endpoints: RouteCollection<Context> {
+	var endpoints: RouteCollection<Context> {
 		RouteCollection(context: Context.self)
 			.get("/.well-known/webfinger", use: get)
 	}
@@ -31,7 +29,7 @@ public struct WebFingerController<Context: RequestContext>: Sendable {
 				WebFingerResource.Descriptor.Link(
 					rel: "self",
 					type: "application/activity+json",
-					href: "https://\(host)\(routingPrefix)/users/\(query.user)"
+					href: "\(configuration.urlPrefix)/users/\(query.user)"
 				)
 			]
 		)

@@ -2,16 +2,14 @@ import Hummingbird
 
 import NodeInfo
 
-public struct NodeInfoController<Context: RequestContext>: Sendable {
-	let host: String
-	let routingPrefix: String
+struct NodeInfoController<Context: RequestContext>: Sendable {
+	let configuration: Configuration
 
-	public init(host: String, routingPrefix: String) {
-		self.host = host
-		self.routingPrefix = routingPrefix
+	init(configuration: Configuration) {
+		self.configuration = configuration
 	}
 
-	public var endpoints: RouteCollection<Context> {
+	var endpoints: RouteCollection<Context> {
 		RouteCollection(context: Context.self)
 			.get("/.well-known/nodeinfo", use: getProtocolDocument)
 			.get("/nodeinfo/2.1", use: getNodeInfo_2_1)
@@ -22,11 +20,11 @@ public struct NodeInfoController<Context: RequestContext>: Sendable {
 			links: [
 				NodeInfoProtocol.Link(
 					rel: NodeInfoVersion.version_2_1.uri,
-					href: "https://\(host)\(routingPrefix)/nodeinfo/2.1"
+					href: "\(configuration.urlPrefix)/nodeinfo/2.1"
 				),
 				NodeInfoProtocol.Link(
 					rel: NodeInfoVersion.version_2_0.uri,
-					href: "https://\(host)\(routingPrefix)/nodeinfo/2.0"
+					href: "\(configuration.urlPrefix)/nodeinfo/2.0"
 
 				)
 			]
