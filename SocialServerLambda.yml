@@ -108,11 +108,18 @@ Resources:
       RouteKey: "GET /nodeinfo/{version}"
       Target: !Sub "integrations/${APIIntegration}"
 
-  HealthAPIRoute:
+  HostMetaAPIRoute:
     Type: AWS::ApiGatewayV2::Route
     Properties:
       ApiId: !Ref API
-      RouteKey: "GET /health"
+      RouteKey: "GET /.well-known/host-meta"
+      Target: !Sub "integrations/${APIIntegration}"
+
+  GetUserAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref API
+      RouteKey: "GET /users/{id}"
       Target: !Sub "integrations/${APIIntegration}"
 
   APIStage:

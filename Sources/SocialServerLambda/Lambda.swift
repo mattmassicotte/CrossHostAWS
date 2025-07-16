@@ -49,6 +49,9 @@ struct AppLambda: APIGatewayV2LambdaFunction {
 
 		group.addRoutes(WebFingerController<Context>(configuration: config).endpoints, atPath: "/")
 		group.addRoutes(NodeInfoController<Context>(configuration: config).endpoints, atPath: "/")
+		group.addRoutes(HostMetaController<Context>(configuration: config).endpoints, atPath: "/")
+
+		group.addRoutes(UserController<Context>(configuration: config).endpoints, atPath: "/")
 
 		return router.buildResponder()
 	}
