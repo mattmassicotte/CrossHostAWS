@@ -11,9 +11,8 @@ let package = Package(
 	dependencies: [
 		.package(url: "https://github.com/hummingbird-project/hummingbird.git", from: "2.0.0"),
 		.package(url: "https://github.com/hummingbird-project/hummingbird-lambda.git", from: "2.0.0-rc.2"),
+		.package(url: "https://github.com/mattmassicotte/SocialServer", branch: "main"),
 		.package(url: "https://github.com/swift-server/swift-aws-lambda-runtime.git", from: "1.0.0-alpha.3"),
-		.package(path: "/Users/matt/Developer/SocialServer"),
-
 	],
 	targets: [
 		.executableTarget(

@@ -1,5 +1,5 @@
 {
-  "originHash" : "4b4dedf1611eb231a7857abda61c1d70cf1484f45721afe6e7054b9a54ca6144",
+  "originHash" : "7c6df905eafd4656d39f5e0f236d52e57a1076a9f4d7ba415e0396ba0da40fb0",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -35,6 +35,15 @@
       "state" : {
         "branch" : "main",
         "revision" : "e00ca094fa8fba0d66a9e2f18dea8f88bd1de0a0"
+      }
+    },
+    {
+      "identity" : "socialserver",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mattmassicotte/SocialServer",
+      "state" : {
+        "branch" : "main",
+        "revision" : "e637586c6f2ed92e2ec553b4838753c4c3b16ec4"
       }
     },
     {
