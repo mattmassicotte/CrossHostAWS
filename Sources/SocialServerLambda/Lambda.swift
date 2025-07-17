@@ -38,10 +38,9 @@ struct AppLambda: APIGatewayV2LambdaFunction {
 		let router = Router(context: Context.self)
 
 		router.add(middleware: ErrorMiddleware())
+		router.add(middleware: LogRequestsMiddleware(.info))
 
 		let group = router.group(RouterPath(config.routePrefix))
-
-		group.add(middleware: LogRequestsMiddleware(.info))
 
 		group.get("/health") { _, _  in
 			HTTPResponse.Status.ok
