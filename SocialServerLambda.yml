@@ -11,6 +11,10 @@ Parameters:
       - x86_64
       - arm64
 
+  DomainName:
+    Type: String
+    Description: Domain that will host the server
+
 Outputs:
   InvokeURL:
     Description: "HTTP API URL"
@@ -48,7 +52,7 @@ Resources:
         Variables:
           LOG_LEVEL: debug
           ROUTE_PREFIX: !Ref APIStage
-          DOMAIN: !Sub "${API}.execute-api.${AWS::Region}.amazonaws.com"
+          DOMAIN: !Ref DomainName
       Description: "Swift function that services requests from API Gateway"
       FunctionName: SocialServer
       Handler: SocialServerLambda
@@ -70,6 +74,27 @@ Resources:
     Properties:
       LogGroupName: "/aws/lambda/SocialServer"
       RetentionInDays: 7
+
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+
+  APIDomain:
+    Type: AWS::ApiGatewayV2::DomainName
+    Properties:
+      DomainName: !Ref DomainName
+      DomainNameConfigurations:
+        - CertificateArn: !Ref Certificate
+
+  APIMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    DependsOn: APIDomain
+    Properties:
+      DomainName: !Ref DomainName
+      ApiId: !Ref API
+      Stage: !Ref APIStage
 
   API:
     Type: AWS::ApiGatewayV2::Api
