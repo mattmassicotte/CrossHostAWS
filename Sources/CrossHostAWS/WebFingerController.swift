@@ -2,7 +2,7 @@ import Hummingbird
 import HTTPTypes
 
 import WebFinger
-import SocialServer
+import CrossHost
 
 public struct AbstractWebFingerController<Responder: HTTPResponding>: Sendable {
 	let configuration: Configuration

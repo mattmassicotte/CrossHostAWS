@@ -40,10 +40,10 @@ struct NodeInfoController<Context: RequestContext>: Sendable {
 	func getNodeInfo_2_1(request: Request, context: some RequestContext) async throws -> Response {
 		let document = NodeInfo_2_1.Document(
 			software: NodeInfo_2_1.Software(
-				name: "SocialServer",
+				name: "CrossHost",
 				version: "0.1",
-				repository: "https://github.com/mattmassicotte/SocialServerLambda",
-				homepage: "https://github.com/mattmassicotte/SocialServer"
+				repository: "https://github.com/mattmassicotte/CrossHostAWS",
+				homepage: "https://github.com/mattmassicotte/CrossHost"
 			),
 			protocols: [.activitypub],
 			services: NodeInfo_2_1.Services(inbound: [], outbound: []),

@@ -1,6 +1,6 @@
-# SocialServerLambda
+# CrossHostAWS
 
-Host [SocialServer](https://github.com/mattmassicotte/SocialServer) on AWS Lambda.
+Host [CrossHost](https://github.com/mattmassicotte/CrossHost) on AWS Lambda.
 
 My current hope is to use S3 and Keyspaces if I can pull it off, falling back to Dynamo if I cannot.
 
@@ -16,7 +16,7 @@ My current hope is to use S3 and Keyspaces if I can pull it off, falling back to
 - `sh build.sh`
 - `sh upload.sh my.bucket.com`
 
-Use CloudFormation to set up "SocialServerLambda.yml"
+Use CloudFormation to set up "CrossHostAWS.yml"
 
 ## Contribution and Collaboration
 

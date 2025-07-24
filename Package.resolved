@@ -1,5 +1,5 @@
 {
-  "originHash" : "ed5df4b5c5c99cd5af86f1e2575393ff955f3b19bb0cbc9997cab460f4b00ccf",
+  "originHash" : "95e27fb79739428aafbbaa0fd74beea3cb2886b209ef396a73d3fac9e505d801",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "60235983163d040f343a489f7e2e77c1918a8bd9",
         "version" : "1.26.1"
+      }
+    },
+    {
+      "identity" : "crosshost",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mattmassicotte/CrossHost",
+      "state" : {
+        "branch" : "main",
+        "revision" : "452cc2ab1f78849109e128d773cb053578f3e567"
       }
     },
     {
@@ -44,15 +53,6 @@
       "state" : {
         "branch" : "main",
         "revision" : "e00ca094fa8fba0d66a9e2f18dea8f88bd1de0a0"
-      }
-    },
-    {
-      "identity" : "socialserver",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/mattmassicotte/SocialServer",
-      "state" : {
-        "branch" : "main",
-        "revision" : "4d4478958ec6a72022a8f8db7833f62755b72f2f"
       }
     },
     {
