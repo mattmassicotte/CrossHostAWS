@@ -1,5 +1,5 @@
 {
-  "originHash" : "7c6df905eafd4656d39f5e0f236d52e57a1076a9f4d7ba415e0396ba0da40fb0",
+  "originHash" : "ed5df4b5c5c99cd5af86f1e2575393ff955f3b19bb0cbc9997cab460f4b00ccf",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -29,6 +29,15 @@
       }
     },
     {
+      "identity" : "jsonld",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mattmassicotte/JSONLD",
+      "state" : {
+        "branch" : "main",
+        "revision" : "42d518c6b71ab6cc7eb702db13a42eeba313fb00"
+      }
+    },
+    {
       "identity" : "nodeinfo",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mattmassicotte/NodeInfo",
@@ -43,7 +52,7 @@
       "location" : "https://github.com/mattmassicotte/SocialServer",
       "state" : {
         "branch" : "main",
-        "revision" : "e637586c6f2ed92e2ec553b4838753c4c3b16ec4"
+        "revision" : "4d4478958ec6a72022a8f8db7833f62755b72f2f"
       }
     },
     {
@@ -123,8 +132,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-crypto.git",
       "state" : {
-        "revision" : "e8d6eba1fef23ae5b359c46b03f7d94be2f41fed",
-        "version" : "3.12.3"
+        "revision" : "84b1d494118d63629a785230135f82991f02329e",
+        "version" : "3.13.2"
       }
     },
     {

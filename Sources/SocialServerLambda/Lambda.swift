@@ -14,7 +14,7 @@ struct Configuration {
 	}
 
 	var urlPrefix: String {
-		"\(scheme)://\(host)/\(routePrefix)"
+		"\(scheme)://\(host)"
 	}
 }
 
@@ -69,8 +69,12 @@ struct ErrorMiddleware<Context: RequestContext>: RouterMiddleware {
 		do {
 			return try await next(input, context)
 		} catch let error as HTTPError {
+			context.logger.error("failed: \(error)")
+			
 			throw error
 		} catch {
+			context.logger.error("failed: \(error)")
+
 			throw HTTPError(.internalServerError, message: "Error: \(error)")
 		}
 	}
