@@ -3,20 +3,7 @@ import AWSLambdaRuntime
 import HummingbirdLambda
 import Logging
 
-struct Configuration {
-	let host: String
-	let routePrefix: String
-	let scheme: String = "https"
-
-	init(host: String?, routePrefix: String?) {
-		self.host = host ?? "localhost"
-		self.routePrefix = routePrefix ?? ""
-	}
-
-	var urlPrefix: String {
-		"\(scheme)://\(host)"
-	}
-}
+import CrossHost
 
 @main
 struct AppLambda: APIGatewayV2LambdaFunction {
@@ -30,7 +17,7 @@ struct AppLambda: APIGatewayV2LambdaFunction {
 
 	func buildResponder() -> some HTTPResponder<Context> {
 		let env = Environment()
-		let config = Configuration(
+		let config = ControllerConfiguration(
 			host: env.get("DOMAIN"),
 			routePrefix: env.get("ROUTE_PREFIX")
 		)

@@ -25,8 +25,8 @@ Resources:
   LambdaRole:
     Type: AWS::IAM::Role
     Properties:
-      Description: "SocialServerFunction Lambda Role"
-      RoleName: "SocialServerFunctionRole"
+      Description: "CrossHostFunction Lambda Role"
+      RoleName: "CrossHostFunctionRole"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -40,6 +40,14 @@ Resources:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
 
+  LambdaLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      Description: "Certificates and Keys"
+      Content:
+         S3Bucket: !Ref BucketName
+         S3Key: CrossHostLambdaLayer.zip
+
   Lambda:
     Type: AWS::Lambda::Function
     Properties:
@@ -47,15 +55,17 @@ Resources:
         - !Ref Architecture
       Code:
         S3Bucket: !Ref BucketName
-        S3Key: SocialServerFunction.zip
+        S3Key: CrossHostLambda.zip
       Environment:
         Variables:
-          LOG_LEVEL: debug
+          LOG_LEVEL: info
           ROUTE_PREFIX: !Ref APIStage
           DOMAIN: !Ref DomainName
       Description: "Swift function that services requests from API Gateway"
-      FunctionName: SocialServer
-      Handler: SocialServerLambda
+      FunctionName: CrossHost
+      Handler: CrossHostLambda
+      Layers:
+        - !Ref LambdaLayer
       PackageType: Zip
       Role: !Sub "${LambdaRole.Arn}"
       Runtime: "provided.al2"
@@ -72,7 +82,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     DependsOn: Lambda
     Properties:
-      LogGroupName: "/aws/lambda/SocialServer"
+      LogGroupName: "/aws/lambda/CrossHost"
       RetentionInDays: 7
 
   Certificate:
@@ -99,8 +109,8 @@ Resources:
   API:
     Type: AWS::ApiGatewayV2::Api
     Properties:
-      Description: "SocialServer HTTP API"
-      Name: SocialServer
+      Description: "CrossHost HTTP API"
+      Name: CrossHost
       ProtocolType: HTTP
       Version: 1
 
@@ -145,6 +155,27 @@ Resources:
     Properties:
       ApiId: !Ref API
       RouteKey: "GET /users/{id}"
+      Target: !Sub "integrations/${APIIntegration}"
+
+  PostUserInboxAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref API
+      RouteKey: "POST /users/{id}/inbox"
+      Target: !Sub "integrations/${APIIntegration}"
+
+  GetUserOutboxAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref API
+      RouteKey: "GET /users/{id}/outbox"
+      Target: !Sub "integrations/${APIIntegration}"
+
+  GetUserOutboxContentsAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref API
+      RouteKey: "GET /users/{id}/outbox/contents"
       Target: !Sub "integrations/${APIIntegration}"
 
   APIStage:

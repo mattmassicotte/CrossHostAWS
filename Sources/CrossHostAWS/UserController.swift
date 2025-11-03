@@ -1,6 +1,5 @@
 import Hummingbird
 
-import JSONLD
 import AsyncHTTPClient
 
 #if canImport(FoundationEssentials)
@@ -9,165 +8,16 @@ import FoundationEssentials
 import Foundation
 #endif
 
-struct APPublicKey: Codable, Identifiable {
-	let id: String
-	let owner: String?
-	let controller: String?
-	let publicKeyPem: String
-
-	public init(id: String, controller: String, publicKeyPem: String) {
-		self.id = id
-		self.owner = controller
-		self.controller = controller
-		self.publicKeyPem = publicKeyPem
-	}
-}
-
-struct APActor: JSONLDDocument, Identifiable {
-	enum CodingKeys: String, CodingKey {
-		case context = "@context"
-		case id
-		case type
-		case preferredUsername
-		case inbox
-		case outbox
-		case publicKey
-	}
-
-	let context: ContextDefinition
-	let id: String
-	let type: String
-	let preferredUsername: String
-	let inbox: String
-	let outbox: String
-	let publicKey: APPublicKey
-
-	public init(context: ContextDefinition, id: String, type: String, preferredUsername: String, inbox: String, outbox: String, publicKey: APPublicKey) {
-		self.context = context
-		self.id = id
-		self.type = type
-		self.preferredUsername = preferredUsername
-		self.inbox = inbox
-		self.outbox = outbox
-		self.publicKey = publicKey
-	}
-}
-
-struct APOutbox: JSONLDDocument, Identifiable {
-	enum CodingKeys: String, CodingKey {
-		case context = "@context"
-		case id
-		case type
-		case totalItems
-		case first
-		case last
-	}
-
-	let context: ContextDefinition
-	let id: String
-	let type: String
-	let totalItems: Int
-	let first: String
-	let last: String
-
-	public init(context: ContextDefinition, id: String, type: String, totalItems: Int, first: String, last: String) {
-		self.context = context
-		self.id = id
-		self.type = type
-		self.totalItems = totalItems
-		self.first = first
-		self.last = last
-	}
-}
-
-struct APOutboxContent: JSONLDDocument, Identifiable {
-	struct Item: Codable {
-		struct ItemObject: Codable {
-			let id: String
-			let type: String
-			let content: String
-
-			init(id: String, type: String, content: String) {
-				self.id = id
-				self.type = type
-				self.content = content
-			}
-		}
-
-		let id: String
-		let type: String
-		let actor: String
-		let published: String
-		let to: [String]
-		let cc: [String]
-		let object: ItemObject
-
-		init(id: String, type: String, actor: String, published: String, to: [String], cc: [String], object: ItemObject) {
-			self.id = id
-			self.type = type
-			self.actor = actor
-			self.published = published
-			self.to = to
-			self.cc = cc
-			self.object = object
-		}
-	}
-
-	enum CodingKeys: String, CodingKey {
-		case context = "@context"
-		case id
-		case type
-		case next
-		case prev
-		case partOf
-		case orderedItems
-	}
-
-	let context: ContextDefinition
-	let id: String
-	let type: String
-	let next: String?
-	let prev: String?
-	let partOf: String
-	let orderedItems: [Item]
-
-	init(context: ContextDefinition, id: String, type: String, next: String?, prev: String?, partOf: String, orderedItems: [Item]) {
-		self.context = context
-		self.id = id
-		self.type = type
-		self.next = next
-		self.prev = prev
-		self.partOf = partOf
-		self.orderedItems = orderedItems
-	}
-}
-
-struct APFollowRequest: JSONLDDocument, Identifiable {
-	enum CodingKeys: String, CodingKey {
-		case context = "@context"
-		case id
-		case type
-		case actor
-		case object
-	}
-
-	let context: ContextDefinition
-	let id: String
-	let type: String
-	let actor: String
-	let object: String
-}
-
-extension AsyncSequence {
-	func collect() async throws -> [Element] {
-		try await reduce(into: [Element]()) { $0.append($1) }
-	}
-}
+import HTTPSignature
+import Crypto
+import _CryptoExtras
+import CrossHost
+import ActivityPub
 
 struct UserController<Context: RequestContext>: Sendable {
-	let configuration: Configuration
+	let configuration: ControllerConfiguration
 
-	init(configuration: Configuration) {
+	init(configuration: ControllerConfiguration) {
 		self.configuration = configuration
 	}
 
@@ -193,6 +43,7 @@ R4lvv7YibVqnjGOljedTjkwNhrr4Zmczp9keDWkBf81ejrRILC+/x3hZo41Navjk
 8QIDAQAB
 -----END PUBLIC KEY-----   
 """
+
 		let apActor = APActor(
 			context: [
 				"https://www.w3.org/ns/activitystreams",
@@ -220,28 +71,142 @@ R4lvv7YibVqnjGOljedTjkwNhrr4Zmczp9keDWkBf81ejrRILC+/x3hZo41Navjk
 	func inbox(request: Request, context: Context) async throws -> Response {
 		context.logger.info("inbox: \(request)")
 
-		let _ = try context.parameters.require("id")
+		let id = try context.parameters.require("id")
+		if id != "test" {
+			return Response(status: .notFound)
+		}
+
+		let userURLPrefix = "\(configuration.urlPrefix)/users/\(id)"
 
 		if let followRequest = try? await request.decode(as: APFollowRequest.self, context: context) {
 			context.logger.info("follow: \(followRequest.actor)")
 
-			var request = HTTPClientRequest(url: followRequest.actor)
+			guard followRequest.actor.hasPrefix("https://activitypub.academy") else {
+				context.logger.info("follower unsupported")
+				return Response(status: .unprocessableContent)
+			}
 
-			request.headers.replaceOrAdd(
+			var actorRequest = HTTPClientRequest(url: followRequest.actor)
+
+			actorRequest.headers.replaceOrAdd(
 				name: "Accept",
 				value: "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""
 			)
 
-			let response = try await HTTPClient.shared.execute(request, timeout: .seconds(4))
-			guard response.status.code >= 200 && response.status.code < 300 else {
-				context.logger.info("actor unavailable")
+			let client = HTTPClient.shared
+
+			let actorResponse = try await client.execute(actorRequest, timeout: .seconds(2))
+			guard actorResponse.status.code >= 200 && actorResponse.status.code < 300 else {
+				context.logger.info("actor unavailable: \(actorResponse.status)")
 				return Response(status: .unprocessableContent)
 			}
 
-			let body = try await response.body.collect(upTo: 1024 * 1024)
+			let body = try await actorResponse.body.collect(upTo: 1024 * 1024)
 			let follower = try JSONDecoder().decode(APActor.self, from: Data(buffer: body))
 
 			context.logger.info("follower inbox: \(follower.inbox)")
+			let activityID = UUID().uuidString.lowercased()
+
+			let accept = APAcceptActivity(
+				context: "https://www.w3.org/ns/activitystreams",
+				id: "\(userURLPrefix)/activity/\(activityID)",
+				type: "Accept",
+				actor: userURLPrefix,
+				object: APAcceptActivity.Object(
+					id: followRequest.id,
+					type: followRequest.type,
+					actor: userURLPrefix,
+					object: followRequest.actor
+				)
+			)
+
+			context.logger.info("accept: \(accept)")
+
+			var acceptRequest = HTTPClientRequest(url: follower.inbox)
+
+			let bodyBuffer = try JSONEncoder().encodeAsByteBuffer(
+				accept,
+				allocator: ByteBufferAllocator()
+			)
+			acceptRequest.body = .bytes(bodyBuffer)
+
+			acceptRequest.method = .POST
+			acceptRequest.headers.replaceOrAdd(
+				name: "Content-Type",
+				value: "application/ld+json; profile=\"https://www.w3.org/ns/activitystreams\""
+			)
+
+			guard let components = URLComponents(string: follower.inbox, encodingInvalidCharacters: false) else {
+				context.logger.info("bad follower inbox url: \(follower.inbox)")
+				return Response(status: .unprocessableContent)
+			}
+
+			let url = URL(fileURLWithPath: "/opt/crosshost.pem")
+			let actorPrivateKey: String
+
+			do {
+				actorPrivateKey = try String(contentsOf: url, encoding: .utf8)
+			} catch {
+				context.logger.info("unable to read private key: \(error)")
+				return Response(status: .internalServerError)
+			}
+
+			let algoProvider = Algorithm.Provider(
+				signer: { algo, data in
+					precondition(algo == .RS256)
+
+					context.logger.info("signing: \(String(decoding: data, as: UTF8.self))")
+
+					let privateKey = try _RSA.Signing.PrivateKey(pemRepresentation: actorPrivateKey)
+
+					let sig = try privateKey.signature(
+						for: data,
+						padding: _RSA.Signing.Padding.insecurePKCS1v1_5
+					)
+
+					return sig.rawRepresentation
+				},
+				hasher: { algo, data in
+					precondition(algo == .RS256)
+
+					context.logger.info("hashing: \(String(decoding: data, as: UTF8.self))")
+
+					let digest = SHA256.hash(data: data)
+
+					return Data(digest)
+				}
+			)
+
+			context.logger.info("signing")
+
+			try await acceptRequest.sign(
+				scheme: components.scheme!,
+				host: components.host!,
+				path: components.path,
+				keyId: "\(userURLPrefix)#main-key",
+				provider: algoProvider
+			)
+
+			context.logger.info("http request: \(acceptRequest)")
+			context.logger.info("http signature: \(acceptRequest.headers["Signature"])")
+			context.logger.info("http host: \(acceptRequest.headers["Host"])")
+			context.logger.info("http date: \(acceptRequest.headers["Date"])")
+			context.logger.info("http digest: \(acceptRequest.headers["Digest"])")
+
+			let acceptResponse = try await client.execute(acceptRequest, timeout: .seconds(2))
+
+			guard acceptResponse.status.code >= 200 && acceptResponse.status.code < 300 else {
+				context.logger.info("accept failed: \(acceptResponse.status)")
+
+				let digestInput = try await acceptResponse.body.collect(upTo: 1024 * 1024)
+				let data = Data(buffer: digestInput)
+
+				let str = String(decoding: data, as: UTF8.self)
+				context.logger.info("accept body: \(str)")
+				return Response(status: .unprocessableContent)
+			}
+
+			context.logger.info("accepted")
 		}
 
 		return Response(status: .accepted)
@@ -251,6 +216,10 @@ R4lvv7YibVqnjGOljedTjkwNhrr4Zmczp9keDWkBf81ejrRILC+/x3hZo41Navjk
 		context.logger.info("outbox: \(request)")
 
 		let id = try context.parameters.require("id")
+		if id != "test" {
+			return Response(status: .notFound)
+		}
+
 		let userURLPrefix = "\(configuration.urlPrefix)/users/\(id)"
 
 		let outbox = APOutbox(
@@ -273,6 +242,9 @@ R4lvv7YibVqnjGOljedTjkwNhrr4Zmczp9keDWkBf81ejrRILC+/x3hZo41Navjk
 		context.logger.info("outbox contents: \(request)")
 
 		let id = try context.parameters.require("id")
+		if id != "test" {
+			return Response(status: .notFound)
+		}
 		let userURLPrefix = "\(configuration.urlPrefix)/users/\(id)"
 
 		let content = APOutboxContent(

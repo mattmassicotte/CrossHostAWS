@@ -2,13 +2,13 @@
 
 set -euxo pipefail
 
-swiftly run swift build --product SocialServerLambda -c release -Xlinker -s --swift-sdk aarch64-swift-linux-musl
+swiftly run swift build --product CrossHostAWS -c release -Xlinker -s --swift-sdk aarch64-swift-linux-musl
 
-target=.build/lambda/SocialServerLambda
+target=.build/lambda/CrossHostLambda
 
 rm -rf "$target"
 mkdir -p "$target"
-cp ".build/release/SocialServerLambda" "$target/"
+cp ".build/release/CrossHostAWS" "$target/CrossHostLambda"
 cd "$target"
-ln -s "SocialServerLambda" "bootstrap"
-zip --symlinks SocialServerFunction.zip *
+ln -s "CrossHostLambda" "bootstrap"
+zip --symlinks CrossHostLambda.zip *
