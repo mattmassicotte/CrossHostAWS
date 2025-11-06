@@ -25,7 +25,7 @@ Resources:
   LambdaRole:
     Type: AWS::IAM::Role
     Properties:
-      Description: "CrossHostFunction Lambda Role"
+      Description: "CrossHost Lambda Role"
       RoleName: "CrossHostFunctionRole"
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -39,6 +39,23 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
         - "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+
+  APIGatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: API Gateway Role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - apigateway.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
 
   LambdaLayer:
     Type: AWS::Lambda::LayerVersion
@@ -55,15 +72,15 @@ Resources:
         - !Ref Architecture
       Code:
         S3Bucket: !Ref BucketName
-        S3Key: CrossHostLambda.zip
+        S3Key: CrossHostHTTPLambda.zip
       Environment:
         Variables:
           LOG_LEVEL: info
           ROUTE_PREFIX: !Ref APIStage
           DOMAIN: !Ref DomainName
       Description: "Swift function that services requests from API Gateway"
-      FunctionName: CrossHost
-      Handler: CrossHostLambda
+      FunctionName: CrossHostHTTPLambda
+      Handler: CrossHostHTTPLambda
       Layers:
         - !Ref LambdaLayer
       PackageType: Zip
@@ -78,11 +95,56 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${API}/*/*/*"
 
+  WebSocketLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub "${WebSocketLambda.Arn}"
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketAPI}/*"
+
   LambdaLogGroup:
     Type: AWS::Logs::LogGroup
     DependsOn: Lambda
     Properties:
       LogGroupName: "/aws/lambda/CrossHost"
+      RetentionInDays: 7
+
+  WebSocketLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Architectures:
+        - !Ref Architecture
+      Code:
+        S3Bucket: !Ref BucketName
+        S3Key: CrossHostWSLambda.zip
+      Environment:
+        Variables:
+          LOG_LEVEL: info
+          ROUTE_PREFIX: !Ref WebSocketAPIStage
+          DOMAIN: !Ref DomainName
+      Description: "Handles requests from API Gateway WebSocket service"
+      FunctionName: CrossHostWSLambda
+      Handler: CrossHostWSLambda
+      Layers:
+        - !Ref LambdaLayer
+      PackageType: Zip
+      Role: !Sub "${LambdaRole.Arn}"
+      Runtime: "provided.al2"
+
+  WebSocketLambdaAPIPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub "${WebSocketLambda.Arn}"
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${API}/*/*/*"
+
+  WebSocketLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: WebSocketLambda
+    Properties:
+      LogGroupName: "/aws/lambda/CrossHostWSLambda"
       RetentionInDays: 7
 
   Certificate:
@@ -91,28 +153,55 @@ Resources:
       DomainName: !Ref DomainName
       ValidationMethod: DNS
 
-  APIDomain:
-    Type: AWS::ApiGatewayV2::DomainName
-    Properties:
-      DomainName: !Ref DomainName
-      DomainNameConfigurations:
-        - CertificateArn: !Ref Certificate
-
-  APIMapping:
-    Type: AWS::ApiGatewayV2::ApiMapping
-    DependsOn: APIDomain
-    Properties:
-      DomainName: !Ref DomainName
-      ApiId: !Ref API
-      Stage: !Ref APIStage
+  APIGatewayAccount:
+      Type: AWS::ApiGateway::Account
+      Properties:
+        CloudWatchRoleArn: !GetAtt APIGatewayRole.Arn
 
   API:
     Type: AWS::ApiGatewayV2::Api
     Properties:
       Description: "CrossHost HTTP API"
-      Name: CrossHost
+      Name: CrossHostHTTP
       ProtocolType: HTTP
       Version: 1
+
+  WebSocketAPI:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Description: "CrossHost WebSocket API"
+      Name: CrossHostWS
+      ProtocolType: WEBSOCKET
+      Version: 1
+      RouteSelectionExpression: "$request.body.action"
+
+  WebSocketAPIIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketAPI
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketLambda.Arn}/invocations"
+
+  DefaultWebSocketAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketAPI
+      RouteKey: "$default"
+      Target: !Sub "integrations/${WebSocketAPIIntegration}"
+
+  ConnectWebSocketAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketAPI
+      RouteKey: "$connect"
+      Target: !Sub "integrations/${WebSocketAPIIntegration}"
+
+  DisconnectWebSocketAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketAPI
+      RouteKey: "$disconnect"
+      Target: !Sub "integrations/${WebSocketAPIIntegration}"
 
   APIIntegration:
     Type: AWS::ApiGatewayV2::Integration
@@ -127,6 +216,27 @@ Resources:
     Properties:
       ApiId: !Ref API
       RouteKey: "GET /.well-known/webfinger"
+      Target: !Sub "integrations/${APIIntegration}"
+
+  RootDIDWebAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref API
+      RouteKey: "GET /.well-known/did.json"
+      Target: !Sub "integrations/${APIIntegration}"
+
+  GetATProtoXRPCRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref API
+      RouteKey: "GET /xrpc/{nsid}"
+      Target: !Sub "integrations/${APIIntegration}"
+
+  PostATProtoXRPCRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref API
+      RouteKey: "POST /xrpc/{nsid}"
       Target: !Sub "integrations/${APIIntegration}"
 
   NodeInfoProfileAPIRoute:
@@ -185,3 +295,61 @@ Resources:
       AutoDeploy: true
       Description: "API Test Deployment"
       StageName: Test
+
+  WebSocketAPIStage:
+    Type: AWS::ApiGatewayV2::Stage
+    DependsOn: APIGatewayAccount
+    Properties:
+      ApiId: !Ref WebSocketAPI
+      AutoDeploy: true
+      Description: "WebSocket Test Deployment"
+      StageName: Test
+      DefaultRouteSettings:
+          LoggingLevel: INFO
+      AccessLogSettings:
+        DestinationArn: !GetAtt WebSocketAPILogGroup.Arn
+        Format: '{ "requestId": "$context.requestId", "path": "$context.path", "routeKey": "$context.routeKey", "ip": "$context.identity.sourceIp", "requestTime": "$context.requestTime", "httpMethod": "$context.httpMethod","statusCode": $context.status }'
+
+  WebSocketAPILogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "/aws/apigateway/ws"
+      RetentionInDays: 7
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !Sub "${API}.execute-api.${AWS::Region}.amazonaws.com"
+            Id: HTTPOrigin
+            OriginPath: !Sub "/${APIStage}"
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+          - DomainName: !Sub "${WebSocketAPI}.execute-api.${AWS::Region}.amazonaws.com"
+            Id: WSOrigin
+            OriginPath: !Sub "/${WebSocketAPIStage}"
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+        Aliases:
+          - !Ref DomainName
+        ViewerCertificate:
+          AcmCertificateArn: !Ref Certificate
+          SslSupportMethod: sni-only
+        Enabled: true
+        DefaultCacheBehavior:
+          TargetOriginId: HTTPOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+        CacheBehaviors:
+          - TargetOriginId: WSOrigin
+            PathPattern: "/xrpc/com.atproto.sync.subscribeRepos"
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+            Compress: false

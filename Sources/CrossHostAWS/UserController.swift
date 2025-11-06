@@ -141,7 +141,7 @@ R4lvv7YibVqnjGOljedTjkwNhrr4Zmczp9keDWkBf81ejrRILC+/x3hZo41Navjk
 				return Response(status: .unprocessableContent)
 			}
 
-			let url = URL(fileURLWithPath: "/opt/crosshost.pem")
+			let url = URL(fileURLWithPath: "/opt/crosshost-rsa.pem")
 			let actorPrivateKey: String
 
 			do {

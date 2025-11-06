@@ -2,13 +2,22 @@
 
 set -euxo pipefail
 
-swiftly run swift build --product CrossHostAWS -c release -Xlinker -s --swift-sdk aarch64-swift-linux-musl
+swiftly run swift build -c release -Xlinker -s --swift-sdk aarch64-swift-linux-musl
 
-target=.build/lambda/CrossHostLambda
+rm -rf ".build/lambda"
 
-rm -rf "$target"
-mkdir -p "$target"
-cp ".build/release/CrossHostAWS" "$target/CrossHostLambda"
-cd "$target"
-ln -s "CrossHostLambda" "bootstrap"
-zip --symlinks CrossHostLambda.zip *
+# prepare HTTP lambda
+mkdir -p ".build/lambda/CrossHostHTTPLambda"
+cp ".build/release/CrossHostAWS" ".build/lambda/CrossHostHTTPLambda/CrossHostHTTPLambda"
+pushd ".build/lambda/CrossHostHTTPLambda"
+ln -s "CrossHostHTTPLambda" "bootstrap"
+zip --symlinks CrossHostHTTPLambda.zip *
+popd
+
+# prepare WS lambda
+mkdir -p ".build/lambda/CrossHostWSLambda"
+cp ".build/release/CrossHostWS" ".build/lambda/CrossHostWSLambda/CrossHostWSLambda"
+pushd ".build/lambda/CrossHostWSLambda"
+ln -s "CrossHostWSLambda" "bootstrap"
+zip --symlinks CrossHostWSLambda.zip *
+popd

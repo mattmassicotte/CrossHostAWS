@@ -1,49 +1,61 @@
+import Foundation
+
 import AWSLambdaEvents
 import AWSLambdaRuntime
 import HummingbirdLambda
 import Logging
 
 import CrossHost
+import HummingbirdWebSocket
 
 @main
-struct AppLambda: APIGatewayV2LambdaFunction {
+struct App {
 	typealias Context = BasicLambdaRequestContext<APIGatewayV2Request>
 
-	let logger: Logger
-
-	init(context: LambdaInitializationContext) {
-		self.logger = context.logger
-	}
-
-	func buildResponder() -> some HTTPResponder<Context> {
+	static func main() async throws {
 		let env = Environment()
+
+		let url = URL(fileURLWithPath: "/opt/crosshost-p256.pem")
+		let pemData = try String(contentsOf: url, encoding: .utf8)
+
 		let config = ControllerConfiguration(
 			host: env.get("DOMAIN"),
-			routePrefix: env.get("ROUTE_PREFIX")
+			routePrefix: env.get("ROUTE_PREFIX"),
+			p256KeyPem: pemData
 		)
 
+		let app = App()
+		let router = app.buildRouter(configuration: config)
+		let lambda = APIGatewayV2LambdaFunction(router: router)
+
+		try await lambda.runService()
+	}
+
+	func buildRouter(configuration: ControllerConfiguration) -> Router<Context> {
 		let router = Router(context: Context.self)
 
 		router.add(middleware: ErrorMiddleware())
 		router.add(middleware: LogRequestsMiddleware(.info))
 
-		let group = router.group(RouterPath(config.routePrefix))
+		let group = router.group(RouterPath(configuration.routePrefix))
 
-		group.get("/health") { _, _  in
+		router.get("/health") { _, _  in
 			HTTPResponse.Status.ok
 		}
 
-		group.addRoutes(WebFingerController<Context>(configuration: config).endpoints, atPath: "/")
-		group.addRoutes(NodeInfoController<Context>(configuration: config).endpoints, atPath: "/")
-		group.addRoutes(HostMetaController<Context>(configuration: config).endpoints, atPath: "/")
+		router.get("/_health") { _, _  in
+			HTTPResponse.Status.ok
+		}
 
-		group.addRoutes(UserController<Context>(configuration: config).endpoints, atPath: "/")
+		group.addRoutes(WebFingerController<Context>(configuration: configuration).endpoints, atPath: "/")
+		group.addRoutes(NodeInfoController<Context>(configuration: configuration).endpoints, atPath: "/")
+		group.addRoutes(HostMetaController<Context>(configuration: configuration).endpoints, atPath: "/")
 
-		return router.buildResponder()
-	}
+		group.addRoutes(DIDWebController<Context>(configuration: configuration).endpoints, atPath: "/")
+		group.addRoutes(ATProtoXRPCController<Context>(configuration: configuration).endpoints, atPath: "/")
+		group.addRoutes(UserController<Context>(configuration: configuration).endpoints, atPath: "/")
 
-	func shutdown() async throws {
-		self.logger.info("Shutdown")
+		return router
 	}
 }
 

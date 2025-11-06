@@ -1,5 +1,5 @@
 {
-  "originHash" : "07844c51cc5eaf1db5a5c179202e9910bf1a63464aac26a7783156c526442ef8",
+  "originHash" : "3c4af3b046bc3870f5575ae793160649ee2071ba70c856e210290d7e9930071a",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -11,12 +11,30 @@
       }
     },
     {
+      "identity" : "atat",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/mattmassicotte/ATAT",
+      "state" : {
+        "branch" : "main",
+        "revision" : "d4959a56d362a40ed3f9055ff6b8e23db9fc3574"
+      }
+    },
+    {
+      "identity" : "compress-nio",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/adam-fowler/compress-nio.git",
+      "state" : {
+        "revision" : "e1caa19077dda4b00441142ef57da3db02acd466",
+        "version" : "1.4.2"
+      }
+    },
+    {
       "identity" : "crosshost",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mattmassicotte/CrossHost",
       "state" : {
         "branch" : "main",
-        "revision" : "2eb775a3ece414b2734845a6d5e9bed83e1fa676"
+        "revision" : "0923fe6e04b7a9e17a338bfd378b4269ad6967d1"
       }
     },
     {
@@ -42,8 +60,17 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/hummingbird-project/hummingbird-lambda.git",
       "state" : {
-        "revision" : "414379b227c3d01b645846be2cb2b423aef352a4",
-        "version" : "2.0.0-rc.4"
+        "revision" : "32a43ed27f593f5cd3e74efea7514141c377474e",
+        "version" : "2.0.1"
+      }
+    },
+    {
+      "identity" : "hummingbird-websocket",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/hummingbird-project/hummingbird-websocket.git",
+      "state" : {
+        "revision" : "716c54294152c6d3301a6239a1d74db57cbcd6dc",
+        "version" : "2.6.0"
       }
     },
     {
@@ -103,19 +130,28 @@
     {
       "identity" : "swift-aws-lambda-events",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/swift-server/swift-aws-lambda-events.git",
+      "location" : "https://github.com/awslabs/swift-aws-lambda-events.git",
       "state" : {
-        "revision" : "3967b151c5cb8ccb50c49b850a9c4a7315ccc8dc",
-        "version" : "1.1.0"
+        "revision" : "213b75d6405935398a05a5ed74a5fd6a80ff0983",
+        "version" : "1.2.4"
       }
     },
     {
       "identity" : "swift-aws-lambda-runtime",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/swift-server/swift-aws-lambda-runtime.git",
+      "location" : "https://github.com/awslabs/swift-aws-lambda-runtime.git",
       "state" : {
-        "revision" : "5ecc24fa54e61756fe7a7a01f2451da1cffa916e",
-        "version" : "1.0.0-alpha.3"
+        "revision" : "b1553d27663a7218fd08738c65f9a2530385a177",
+        "version" : "2.3.1"
+      }
+    },
+    {
+      "identity" : "swift-bases",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/swift-libp2p/swift-bases",
+      "state" : {
+        "revision" : "96615d4b582f9f6536d8278304ce2a64c8e5288a",
+        "version" : "0.2.0"
       }
     },
     {
@@ -168,8 +204,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-http-types.git",
       "state" : {
-        "revision" : "a0a57e949a8903563aba4615869310c0ebf14c03",
-        "version" : "1.4.0"
+        "revision" : "45eb0224913ea070ec4fba17291b9e7ecf4749ca",
+        "version" : "1.5.1"
       }
     },
     {
@@ -269,6 +305,15 @@
       "state" : {
         "revision" : "61e4ca4b81b9e09e2ec863b00c340eb13497dac6",
         "version" : "1.5.0"
+      }
+    },
+    {
+      "identity" : "swift-websocket",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/hummingbird-project/swift-websocket.git",
+      "state" : {
+        "revision" : "7c0ea7b877386d117441877a7cb24005326750a7",
+        "version" : "1.3.2"
       }
     },
     {

@@ -2,6 +2,7 @@ import Foundation
 
 import HTTPSignature
 import AsyncHTTPClient
+import NIOFoundationCompat
 
 enum HTTPSignatureError: Error {
 	case missingNeededFields
