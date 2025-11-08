@@ -21,6 +21,8 @@ let package = Package(
 		.package(url: "https://github.com/mattmassicotte/JSONLD", branch: "main"),
 		.package(url: "https://github.com/mattmassicotte/HTTPSignature", branch: "main"),
 		.package(url: "https://github.com/mattmassicotte/ATAT", branch: "main"),
+
+		.package(url: "https://github.com/swift-libp2p/swift-cid", branch: "main"),
 	],
 	targets: [
 		.executableTarget(
@@ -36,6 +38,7 @@ let package = Package(
 				.product(name: "Crypto", package: "swift-crypto"),
 				.product(name: "_CryptoExtras", package: "swift-crypto"),
 				"ATAT",
+				.product(name: "CID", package: "swift-cid"),
 			],
 		),
 		.executableTarget(

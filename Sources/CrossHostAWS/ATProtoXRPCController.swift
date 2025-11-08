@@ -5,6 +5,10 @@ import CrossHost
 import Hummingbird
 import HummingbirdWebSocket
 
+import CID
+import Multicodec
+import Multihash
+
 public struct ATProtoTID: Codable, Hashable, Sendable {
 	public init() {
 	}
@@ -44,6 +48,16 @@ extension ATProto {
 			public let rev: ATProtoTID
 			public let active: Bool
 			public let status: Status?
+		}
+
+		public struct ListRepos: Codable, Hashable, Sendable {
+			public let repos: [Repo]
+			public let cursor: String?
+
+			public init(repos: [Repo], cursor: String?) {
+				self.repos = repos
+				self.cursor = cursor
+			}
 		}
 	}
 }
@@ -152,9 +166,25 @@ public struct ATProtoXRPCController<Context: RequestContext>: Sendable {
 		let limit = request.uri.queryParameters.get("limit") ?? "500"
 		let cursor = request.uri.queryParameters.get("cursor") ?? "<none>"
 
-		context.logger.info("syncListRepos: \(limit), \(cursor)  \(request)")
+		context.logger.info("syncListRepos: \(limit), \(cursor) \(request)")
 
-		return Response(status: .notImplemented)
+		let mh = try Multihash(raw: "abc", hashedWith: .sha2_256)
+		let cid = try CID(version: .v1, codec: .dag_cbor, multihash: mh)
+
+		let repos = ATProto.Sync.ListRepos(
+			repos: [
+				ATProto.Sync.Repo(
+					did: "did:web:\(configuration.host)",
+					head: cid.toBaseEncodedString,
+					rev: ATProtoTID(),
+					active: true,
+					status: nil
+				)
+			],
+			cursor: nil
+		)
+
+		return try context.jsonResponse(repos, for: request)
 	}
 
 	func health(request: Request, context: some RequestContext) async throws -> Response {
