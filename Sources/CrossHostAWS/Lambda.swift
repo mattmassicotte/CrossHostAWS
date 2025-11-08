@@ -36,14 +36,11 @@ struct App {
 
 		router.add(middleware: ErrorMiddleware())
 		router.add(middleware: LogRequestsMiddleware(.info))
+		router.add(middleware: CORSMiddleware())
 
 		let group = router.group(RouterPath(configuration.routePrefix))
 
 		router.get("/health") { _, _  in
-			HTTPResponse.Status.ok
-		}
-
-		router.get("/_health") { _, _  in
 			HTTPResponse.Status.ok
 		}
 
@@ -76,5 +73,20 @@ struct ErrorMiddleware<Context: RequestContext>: RouterMiddleware {
 
 			throw HTTPError(.internalServerError, message: "Error: \(error)")
 		}
+	}
+}
+
+struct CORSMiddleware<Context: RequestContext>: RouterMiddleware {
+	func handle(
+		_ input: Request,
+		context: Context,
+		next: (Request, Context) async throws -> Response
+	) async throws -> Response {
+		var response = try await next(input, context)
+
+		response.headers[.accessControlAllowOrigin] = "*"
+		response.headers[.accessControlAllowMethods] = "*"
+
+		return response
 	}
 }

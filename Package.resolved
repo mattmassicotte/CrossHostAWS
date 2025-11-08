@@ -34,7 +34,7 @@
       "location" : "https://github.com/mattmassicotte/CrossHost",
       "state" : {
         "branch" : "main",
-        "revision" : "0923fe6e04b7a9e17a338bfd378b4269ad6967d1"
+        "revision" : "75eecd05451d2e1f59dff99f5c39ecafdf041b13"
       }
     },
     {
@@ -88,7 +88,7 @@
       "location" : "https://github.com/mattmassicotte/NodeInfo",
       "state" : {
         "branch" : "main",
-        "revision" : "e00ca094fa8fba0d66a9e2f18dea8f88bd1de0a0"
+        "revision" : "9a6c58febd924b463acee04da8c47367bc6be6a8"
       }
     },
     {

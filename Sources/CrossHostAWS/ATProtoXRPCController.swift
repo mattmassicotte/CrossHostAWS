@@ -5,6 +5,49 @@ import CrossHost
 import Hummingbird
 import HummingbirdWebSocket
 
+public struct ATProtoTID: Codable, Hashable, Sendable {
+	public init() {
+	}
+
+	public func encode(to encoder: any Encoder) throws {
+		var container = encoder.singleValueContainer()
+
+		try container.encode(description)
+	}
+}
+
+extension ATProtoTID: ExpressibleByStringLiteral {
+	public init(stringLiteral value: String) {
+	}
+}
+
+extension ATProtoTID: CustomStringConvertible {
+	public var description: String {
+		"3jzfcijpj2z2a"
+	}
+}
+
+extension ATProto {
+	public struct Sync {
+		public struct Repo: Codable, Hashable, Sendable {
+			public enum Status: String, Codable, Hashable, Sendable {
+				case takendown
+				case suspended
+				case deleted
+				case deactivated
+				case desynchronized
+				case throttled
+			}
+
+			public let did: ATProtoDID
+			public let head: ATProtoCID
+			public let rev: ATProtoTID
+			public let active: Bool
+			public let status: Status?
+		}
+	}
+}
+
 extension RequestContext {
 	func jsonResponse<T: Encodable>(_ value: T, for request: Request) throws -> Response {
 		var response = try responseEncoder.encode(value, from: request, context: self)
@@ -30,7 +73,7 @@ public struct ATProtoXRPCController<Context: RequestContext>: Sendable {
 			.get("/xrpc/com.atproto.server.describeServer", use: serverDescribeServer)
 			.get("/xrpc/com.atproto.sync.getRecord", use: syncGetRecord)
 			.get("/xrpc/com.atproto.sync.listRepos", use: syncListRepos)
-			.get("/xrpc/com.atproto.sync.subscribeRepos", use: syncSubscribeRepos)
+			.get("/xrpc/_health", use: health)
 			.get("/xrpc/:nsid", use: getResource)
 			.post("/xrpc/:nsid", use: createResource)
 	}
@@ -114,10 +157,8 @@ public struct ATProtoXRPCController<Context: RequestContext>: Sendable {
 		return Response(status: .notImplemented)
 	}
 
-	func syncSubscribeRepos(request: Request, context: some RequestContext) async throws -> Response {
-		context.logger.info("syncSubscribeRepos: \(request)")
-
-		return Response(status: .temporaryRedirect, headers: [.location: "https://wc.\(configuration.host)/xrpc/com.atproto.sync.subscribeRepos"])
+	func health(request: Request, context: some RequestContext) async throws -> Response {
+		Response(status: .ok)
 	}
 
 	private func getResource(request: Request, context: some RequestContext) async throws -> Response {
