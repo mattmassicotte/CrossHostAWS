@@ -4,10 +4,8 @@ import ATAT
 import CrossHost
 import Hummingbird
 import HummingbirdWebSocket
-
-import CID
-import Multicodec
-import Multihash
+import ATProto
+import Crypto
 
 public struct ATProtoTID: Codable, Hashable, Sendable {
 	public init() {
@@ -57,6 +55,21 @@ extension ATProto {
 			public init(repos: [Repo], cursor: String?) {
 				self.repos = repos
 				self.cursor = cursor
+			}
+		}
+	}
+}
+
+extension CID {
+	public init(_ data: Data) throws {
+		try self.init { multihash in
+			switch (multihash.function, multihash.digestSize) {
+			case (.SHA2, 256):
+				let digest = SHA256.hash(data: data)
+
+				return Data(digest)
+			default:
+				throw CIDError.unsupportedCodec(Int(multihash.function.rawValue))
 			}
 		}
 	}
@@ -168,14 +181,13 @@ public struct ATProtoXRPCController<Context: RequestContext>: Sendable {
 
 		context.logger.info("syncListRepos: \(limit), \(cursor) \(request)")
 
-		let mh = try Multihash(raw: "abc", hashedWith: .sha2_256)
-		let cid = try CID(version: .v1, codec: .dag_cbor, multihash: mh)
+		let cid = try CID(Data("abc".utf8))
 
 		let repos = ATProto.Sync.ListRepos(
 			repos: [
 				ATProto.Sync.Repo(
 					did: "did:web:\(configuration.host)",
-					head: cid.toBaseEncodedString,
+					head: cid.baseEncodedString(),
 					rev: ATProtoTID(),
 					active: true,
 					status: nil
