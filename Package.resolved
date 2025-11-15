@@ -139,7 +139,7 @@
     {
       "identity" : "swift-aws-lambda-events",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/awslabs/swift-aws-lambda-events.git",
+      "location" : "https://github.com/awslabs/swift-aws-lambda-events",
       "state" : {
         "revision" : "213b75d6405935398a05a5ed74a5fd6a80ff0983",
         "version" : "1.2.4"
