@@ -107,7 +107,7 @@ Resources:
     Type: AWS::Logs::LogGroup
     DependsOn: Lambda
     Properties:
-      LogGroupName: "/aws/lambda/CrossHost"
+      LogGroupName: !Sub "/aws/lambda/${Lambda}"
       RetentionInDays: 7
 
   WebSocketLambda:
@@ -142,9 +142,8 @@ Resources:
 
   WebSocketLambdaLogGroup:
     Type: AWS::Logs::LogGroup
-    DependsOn: WebSocketLambda
     Properties:
-      LogGroupName: "/aws/lambda/CrossHostWSLambda"
+      LogGroupName: !Sub "/aws/lambda/${WebSocketLambda}"
       RetentionInDays: 7
 
   Certificate:
@@ -312,16 +311,8 @@ Resources:
       Description: "WebSocket Test Deployment"
       StageName: Test
       DefaultRouteSettings:
-          LoggingLevel: INFO
-      AccessLogSettings:
-        DestinationArn: !GetAtt WebSocketAPILogGroup.Arn
-        Format: '{ "requestId": "$context.requestId", "path": "$context.path", "routeKey": "$context.routeKey", "ip": "$context.identity.sourceIp", "requestTime": "$context.requestTime", "httpMethod": "$context.httpMethod","statusCode": $context.status }'
-
-  WebSocketAPILogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: "/aws/apigateway/ws"
-      RetentionInDays: 7
+        DataTraceEnabled: false
+        LoggingLevel: OFF
 
   Distribution:
     Type: AWS::CloudFront::Distribution
