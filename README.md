@@ -28,11 +28,22 @@ Before you begin, there are a few things that are not automatable and require ma
 - A RSA-256 Key
 - A P256 Key
 
+> [!WARNING]
+> If you're not using Route 53 for your domain, all AWS resources should be created in `us-east-1` as that's where CloudFormation will try to provision a certificate for your domain.
+
+
 Currently, the private keys needed by this system are poorly managed. [AWS KMS](https://docs.aws.amazon.com/kms/latest/developerguide/overview.html) could be used here, but it adds per-key cost, so for now I'm living dangerously.
 
 - Build the Lambda Layer, copy it to your deploy bucket
 - Build the Lamda executables, copy them to your deploy bucket
 - Copy `CrossHostAWS.yml` to your deploy bucket
+
+You can do this using the provided scripts:
+
+- Build all components by running `./scripts/build.sh`
+- Create all necessary certificates by running `./scripts/certs.sh`
+- Assemble the layer `./scripts/layer.sh crosshost-rsa.pem crosshost-p256.pem`
+- With your S3 bucker created, you can upload all artifacts using `./scripts/upload.sh <bucket name>`
 
 At this point you can create a the CrossHost CloudFormation stack. It **cannot** complete without manual intervention. You will have to add DNS validation for the SSL certificate created by the stack. You can view the needed information within "Certificate Manager". If you are using Route 53 for your domain, you can add the validation records with one click. Otherwise, you have to do it manually via your registar.
 
