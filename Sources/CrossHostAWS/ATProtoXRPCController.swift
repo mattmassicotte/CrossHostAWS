@@ -7,28 +7,6 @@ import HummingbirdWebSocket
 import ATProto
 import Crypto
 
-public struct ATProtoTID: Codable, Hashable, Sendable {
-	public init() {
-	}
-
-	public func encode(to encoder: any Encoder) throws {
-		var container = encoder.singleValueContainer()
-
-		try container.encode(description)
-	}
-}
-
-extension ATProtoTID: ExpressibleByStringLiteral {
-	public init(stringLiteral value: String) {
-	}
-}
-
-extension ATProtoTID: CustomStringConvertible {
-	public var description: String {
-		"3jzfcijpj2z2a"
-	}
-}
-
 extension ATProto {
 	public struct Sync {
 		public struct Repo: Codable, Hashable, Sendable {
@@ -188,7 +166,7 @@ public struct ATProtoXRPCController<Context: RequestContext>: Sendable {
 				ATProto.Sync.Repo(
 					did: "did:web:\(configuration.host)",
 					head: cid.baseEncodedString(),
-					rev: ATProtoTID(),
+					rev: ATProtoTID(timestamp: 1761709682229089),
 					active: true,
 					status: nil
 				)
