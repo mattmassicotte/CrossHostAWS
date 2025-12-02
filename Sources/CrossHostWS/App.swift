@@ -1,55 +1,112 @@
+import Foundation
+
 import AWSLambdaEvents
 import AWSLambdaRuntime
+import ServiceLifecycle
+import SotoDynamoDB
+import AsyncHTTPClient
+import SotoSQS
 
-public struct MyAPIGatewayWebSocketRequest: Codable {
-	/// `Context` contains information to identify the AWS account and resources invoking the Lambda function.
-	public struct Context: Codable {
-		public struct Identity: Codable {
-			public let sourceIp: String
-		}
-
-		public let routeKey: String
-		public let eventType: String
-		public let extendedRequestId: String
-		/// The request time in format: 23/Apr/2020:11:08:18 +0000
-		public let requestTime: String
-		public let messageDirection: String
-		public let stage: String
-		public let connectedAt: UInt64
-		public let requestTimeEpoch: UInt64
-		public let identity: Identity
-		public let requestId: String
-		public let domainName: String
-		public let connectionId: String
-		public let apiId: String
-	}
-
-	public let headers: HTTPHeaders?
-	public let queryStringParameters: [String: String]?
-	public let multiValueHeaders: HTTPMultiValueHeaders?
-	public let context: Context
-	public let body: String?
-	public let isBase64Encoded: Bool?
-
-	enum CodingKeys: String, CodingKey {
-		case headers
-		case queryStringParameters
-		case multiValueHeaders
-		case context = "requestContext"
-		case body
-		case isBase64Encoded
-	}
-}
+import ATAT
+import ATProto
+import Shared
 
 @main
-struct App {
-	static func main() async throws {
-		let runtime = LambdaRuntime { (event: MyAPIGatewayWebSocketRequest, context: LambdaContext) -> APIGatewayWebSocketResponse in
-			context.logger.info("\(event.context.routeKey) \(event.context.requestId) \(event.queryStringParameters ?? [:])")
+struct LambdaFunction {
+    private let logger: Logger
+    private let awsClient: AWSClient
+    private let dynamoDB: DynamoDB
+    private let dynamoTableName: String
+    private let sqs: SQS
+    private let sqsURL: String
 
-			return APIGatewayWebSocketResponse(statusCode: .ok)
-		}
+    static func main() async throws {
+        try await LambdaFunction().main()
+    }
 
-		try await runtime.run()
+    private init() throws {
+        var logger = Logger(label: "WebSocket")
+        logger.logLevel = Lambda.env("LOG_LEVEL").flatMap(Logger.Level.init) ?? .info
+        self.logger = logger
+
+        let region = Region.init(awsRegionName: Lambda.env("AWS_REGION")!)!
+
+        self.awsClient = AWSClient(httpClient: HTTPClient.shared)
+        self.dynamoDB = DynamoDB(client: awsClient, region: region)
+        self.dynamoTableName = Lambda.env("DYNAMO_TABLE")!
+
+        self.sqs = SQS(client: awsClient, region: region)
+        self.sqsURL = Lambda.env("EVENT_QUEUE_URL")!
+    }
+
+    private func main() async throws {
+        let lambdaRuntime = LambdaRuntime(logger: self.logger, body: self.handler)
+
+        let serviceGroup = ServiceGroup(
+            services: [self.awsClient, lambdaRuntime],
+            gracefulShutdownSignals: [.sigterm],
+            cancellationSignals: [.sigint],
+            logger: self.logger
+        )
+
+        do {
+            try await serviceGroup.run()
+        } catch {
+            logger.error("top level failure: \(error)")
+            throw error
+        }
 	}
+
+    private func handler(event: APIGatewayWebSocketRequest, context: LambdaContext) async throws -> APIGatewayWebSocketResponse {
+        let connectionId = event.context.connectionId
+
+        logger.info("\(event.context.routeKey) \(connectionId) \(event.queryStringParameters ?? [:])")
+
+        let cursorParam = event.queryStringParameters?["cursor"] ?? "0"
+        let cursor = Int(cursorParam) ?? 0
+
+        switch event.context.routeKey {
+        case "$connect":
+            try await addClient(connectionId, cursor: cursor)
+            try await enqueueEvent(.webSocketConnect(id: connectionId, cursor: cursor))
+
+        case "$disconnect":
+            try await removeClient(connectionId)
+            try await enqueueEvent(.webSocketDisconnect(id: connectionId))
+
+        default:
+            break
+        }
+
+        return APIGatewayWebSocketResponse(statusCode: .ok)
+    }
+}
+
+extension LambdaFunction {
+    private func addClient(_ connectionId: String, cursor: Int) async throws {
+        let time = Int(Date.now.timeIntervalSince1970)
+        let record = WebSocketClientRecord(connectionId: connectionId, timestamp: time, cursor: cursor)
+        let input = DynamoDB.PutItemCodableInput(item: record, tableName: self.dynamoTableName)
+        _ = try await dynamoDB.putItem(input, logger: self.logger)
+    }
+
+    private func removeClient(_ requestId: String) async throws {
+        let input = DynamoDB.DeleteItemInput(
+            key: ["pk": .s(WebSocketClientRecord.name), "sk": .s(requestId)],
+            tableName: self.dynamoTableName
+        )
+        _ = try await dynamoDB.deleteItem(input)
+
+    }
+
+    private func enqueueEvent(_ event: EventPayload) async throws {
+        let eventBody = try JSONEncoder().encode(event)
+
+        let sqsInput = SQS.SendMessageRequest(
+            messageBody: String(decoding: eventBody, as: UTF8.self),
+            queueUrl: self.sqsURL
+        )
+
+        _ = try await sqs.sendMessage(sqsInput, logger: logger)
+    }
 }

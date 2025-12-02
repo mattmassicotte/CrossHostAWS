@@ -17,29 +17,40 @@ Parameters:
 
 Outputs:
   InvokeURL:
-    Description: "HTTP API URL"
-    Value: !Sub "https://${API}.execute-api.${AWS::Region}.amazonaws.com/${APIStage}"
+    Description: "Distribution Domain"
+    Value: !Sub "${Distribution.DomainName}"
 
 Resources:
 
-  LambdaRole:
-    Type: AWS::IAM::Role
+  # Global Resources
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
     Properties:
-      Description: "CrossHost Lambda Role"
-      RoleName: "CrossHostFunctionRole"
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - lambda.amazonaws.com
-            Action:
-              - "sts:AssumeRole"
-      ManagedPolicyArns:
-        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
-        - "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
 
+  DynamoDBTable:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+
+  EventQueue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      MessageRetentionPeriod: 3600
+      VisibilityTimeout: 60
+
+  # IAM Roles
   APIGatewayRole:
     Type: AWS::IAM::Role
     Properties:
@@ -57,6 +68,106 @@ Resources:
       ManagedPolicyArns:
         - "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
 
+  HTTPLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: "HTTP Lambda Role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: LambdaRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "sqs:GetQueueAttributes"
+                  - "sqs:SendMessage"
+                Resource: !Sub "${EventQueue.Arn}"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaRole"
+
+  WebSocketLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: "WebSocket Lambda Role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: LambdaRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "sqs:GetQueueAttributes"
+                  - "sqs:SendMessage"
+                Resource: !Sub "${EventQueue.Arn}"
+              - Effect: Allow
+                Action:
+                  - "dynamodb:PutItem"
+                  - "dynamodb:UpdateItem"
+                  - "dynamodb:DeleteItem"
+                Resource: !Sub "arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDBTable}"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+
+  EventLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: "Event Lambda Role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: LambdaRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "sqs:GetQueueAttributes"
+                  - "sqs:ChangeMessageVisibility"
+                  - "sqs:ReceiveMessage"
+                  - "sqs:DeleteMessage"
+                Resource: !Sub "${EventQueue.Arn}"
+              - Effect: Allow
+                Action:
+                  - "dynamodb:GetItem"
+                  - "dynamodb:BatchGetItem"
+                  - "dynamodb:Query"
+                  - "dynamodb:UpdateItem"
+                  - "dynamodb:DeleteItem"
+                Resource: !Sub "arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/${DynamoDBTable}"
+              - Effect: Allow
+                Action:
+                  - "execute-api:ManageConnections"
+                Resource: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketAPI}/*"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+
+  # Lambdas
   LambdaLayer:
     Type: AWS::Lambda::LayerVersion
     Properties:
@@ -65,7 +176,7 @@ Resources:
          S3Bucket: !Ref BucketName
          S3Key: CrossHostLambdaLayer.zip
 
-  Lambda:
+  HTTPLambda:
     Type: AWS::Lambda::Function
     Properties:
       Architectures:
@@ -76,24 +187,26 @@ Resources:
       Environment:
         Variables:
           LOG_LEVEL: info
-          ROUTE_PREFIX: !Ref APIStage
+          ROUTE_PREFIX: !Ref HTTPAPIStage
           DOMAIN: !Ref DomainName
-      Description: "Swift function that services requests from API Gateway"
+      Description: "Handles HTTP requests from API Gateway"
       FunctionName: CrossHostHTTPLambda
       Handler: CrossHostHTTPLambda
       Layers:
         - !Ref LambdaLayer
       PackageType: Zip
-      Role: !Sub "${LambdaRole.Arn}"
+      Role: !Sub "${HTTPLambdaRole.Arn}"
       Runtime: "provided.al2"
+      LoggingConfig:
+        LogGroup: !Ref HTTPLambdaLogGroup
 
   LambdaAPIPermission:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
-      FunctionName: !Sub "${Lambda.Arn}"
+      FunctionName: !Sub "${HTTPLambda.Arn}"
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${API}/*/*/*"
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HTTPAPI}/*/*/*"
 
   WebSocketLambdaPermission:
     Type: AWS::Lambda::Permission
@@ -103,12 +216,11 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketAPI}/*"
 
-  LambdaLogGroup:
+  HTTPLambdaLogGroup:
     Type: AWS::Logs::LogGroup
-    DependsOn: Lambda
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${Lambda}"
-      RetentionInDays: 7
+      LogGroupName: "/CrossHost/HTTP"
+      RetentionInDays: 3
 
   WebSocketLambda:
     Type: AWS::Lambda::Function
@@ -123,14 +235,18 @@ Resources:
           LOG_LEVEL: info
           ROUTE_PREFIX: !Ref WebSocketAPIStage
           DOMAIN: !Ref DomainName
-      Description: "Handles requests from API Gateway WebSocket service"
+          DYNAMO_TABLE: !Ref DynamoDBTable
+          EVENT_QUEUE_URL: !Ref EventQueue
+      Description: "Handles WebSocket requests from API Gateway"
       FunctionName: CrossHostWSLambda
       Handler: CrossHostWSLambda
       Layers:
         - !Ref LambdaLayer
       PackageType: Zip
-      Role: !Sub "${LambdaRole.Arn}"
+      Role: !Sub "${WebSocketLambdaRole.Arn}"
       Runtime: "provided.al2"
+      LoggingConfig:
+        LogGroup: !Ref WebSocketLambdaLogGroup
 
   WebSocketLambdaAPIPermission:
     Type: AWS::Lambda::Permission
@@ -138,33 +254,52 @@ Resources:
       Action: lambda:InvokeFunction
       FunctionName: !Sub "${WebSocketLambda.Arn}"
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${API}/*/*/*"
+      SourceArn: !Sub "arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketAPI}/*/*/*"
 
   WebSocketLambdaLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub "/aws/lambda/${WebSocketLambda}"
-      RetentionInDays: 7
+      LogGroupName: "/CrossHost/WebSocket"
+      RetentionInDays: 3
 
-  Certificate:
-    Type: AWS::CertificateManager::Certificate
+  EventLambda:
+    Type: AWS::Lambda::Function
     Properties:
-      DomainName: !Ref DomainName
-      ValidationMethod: DNS
+      Architectures:
+        - !Ref Architecture
+      Code:
+        S3Bucket: !Ref BucketName
+        S3Key: CrossHostEventLambda.zip
+      Environment:
+        Variables:
+          LOG_LEVEL: info
+          DYNAMO_TABLE: !Ref DynamoDBTable
+          EVENT_QUEUE_URL: !Ref EventQueue
+          WEBSOCKET_API_URL: !Sub "https://${WebSocketAPI}.execute-api.${AWS::Region}.amazonaws.com/${WebSocketAPIStage}"
+      Description: "Handles events from SQS"
+      FunctionName: CrossHostEventLambda
+      Handler: CrossHostEventLambda
+      Layers:
+        - !Ref LambdaLayer
+      PackageType: Zip
+      Role: !Sub "${EventLambdaRole.Arn}"
+      Runtime: "provided.al2"
+      LoggingConfig:
+        LogGroup: !Ref EventLambdaLogGroup
 
-  APIGatewayAccount:
-      Type: AWS::ApiGateway::Account
-      Properties:
-        CloudWatchRoleArn: !GetAtt APIGatewayRole.Arn
-
-  API:
-    Type: AWS::ApiGatewayV2::Api
+  EventLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
     Properties:
-      Description: "CrossHost HTTP API"
-      Name: CrossHostHTTP
-      ProtocolType: HTTP
-      Version: 1
+      LogGroupName: "/CrossHost/Event"
+      RetentionInDays: 3
 
+  EventLambdaSQSMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !Sub "${EventQueue.Arn}"
+      FunctionName: !Ref EventLambda
+
+  # WebSocket API
   WebSocketAPI:
     Type: AWS::ApiGatewayV2::Api
     Properties:
@@ -180,6 +315,19 @@ Resources:
       ApiId: !Ref WebSocketAPI
       IntegrationType: AWS_PROXY
       IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebSocketLambda.Arn}/invocations"
+      ContentHandlingStrategy: CONVERT_TO_BINARY
+
+  WebSocketAPIStage:
+    Type: AWS::ApiGatewayV2::Stage
+    DependsOn: APIGatewayAccount
+    Properties:
+      ApiId: !Ref WebSocketAPI
+      AutoDeploy: true
+      Description: "WebSocket Test Deployment"
+      StageName: Test
+      DefaultRouteSettings:
+        DataTraceEnabled: false
+        LoggingLevel: OFF
 
   DefaultWebSocketAPIRoute:
     Type: AWS::ApiGatewayV2::Route
@@ -202,126 +350,101 @@ Resources:
       RouteKey: "$disconnect"
       Target: !Sub "integrations/${WebSocketAPIIntegration}"
 
-  APIIntegration:
+  # HTTP API
+  APIGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt APIGatewayRole.Arn
+
+  HTTPAPI:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Description: "CrossHost HTTP API"
+      Name: CrossHostHTTP
+      ProtocolType: HTTP
+      Version: 1
+
+  HTTPAPIIntegration:
     Type: AWS::ApiGatewayV2::Integration
     Properties:
-      ApiId: !Ref API
+      ApiId: !Ref HTTPAPI
       IntegrationType: AWS_PROXY
-      IntegrationUri: !Sub "${Lambda.Arn}"
+      IntegrationUri: !Sub "${HTTPLambda.Arn}"
       PayloadFormatVersion: "2.0"
 
-  WebFingerAPIRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref API
-      RouteKey: "GET /.well-known/webfinger"
-      Target: !Sub "integrations/${APIIntegration}"
-
-  RootDIDWebAPIRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref API
-      RouteKey: "GET /.well-known/did.json"
-      Target: !Sub "integrations/${APIIntegration}"
-
-  ATProtoDIDAPIRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref API
-      RouteKey: "GET /.well-known/atproto-did"
-      Target: !Sub "integrations/${APIIntegration}"
-
-  GetATProtoXRPCRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref API
-      RouteKey: "GET /xrpc/{nsid}"
-      Target: !Sub "integrations/${APIIntegration}"
-
-  PostATProtoXRPCRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref API
-      RouteKey: "POST /xrpc/{nsid}"
-      Target: !Sub "integrations/${APIIntegration}"
-
-  NodeInfoProfileAPIRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref API
-      RouteKey: "GET /.well-known/nodeinfo"
-      Target: !Sub "integrations/${APIIntegration}"
-
-  NodeInfoDocumentAPIRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref API
-      RouteKey: "GET /nodeinfo/{version}"
-      Target: !Sub "integrations/${APIIntegration}"
-
-  HostMetaAPIRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref API
-      RouteKey: "GET /.well-known/host-meta"
-      Target: !Sub "integrations/${APIIntegration}"
-
-  GetUserAPIRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref API
-      RouteKey: "GET /users/{id}"
-      Target: !Sub "integrations/${APIIntegration}"
-
-  PostUserInboxAPIRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref API
-      RouteKey: "POST /users/{id}/inbox"
-      Target: !Sub "integrations/${APIIntegration}"
-
-  GetUserOutboxAPIRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref API
-      RouteKey: "GET /users/{id}/outbox"
-      Target: !Sub "integrations/${APIIntegration}"
-
-  GetUserOutboxContentsAPIRoute:
-    Type: AWS::ApiGatewayV2::Route
-    Properties:
-      ApiId: !Ref API
-      RouteKey: "GET /users/{id}/outbox/contents"
-      Target: !Sub "integrations/${APIIntegration}"
-
-  APIStage:
+  HTTPAPIStage:
     Type: AWS::ApiGatewayV2::Stage
     Properties:
-      ApiId: !Ref API
+      ApiId: !Ref HTTPAPI
       AutoDeploy: true
       Description: "API Test Deployment"
       StageName: Test
 
-  WebSocketAPIStage:
-    Type: AWS::ApiGatewayV2::Stage
-    DependsOn: APIGatewayAccount
+  WellKnownAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
     Properties:
-      ApiId: !Ref WebSocketAPI
-      AutoDeploy: true
-      Description: "WebSocket Test Deployment"
-      StageName: Test
-      DefaultRouteSettings:
-        DataTraceEnabled: false
-        LoggingLevel: OFF
+      ApiId: !Ref HTTPAPI
+      RouteKey: "GET /.well-known/{resource}"
+      Target: !Sub "integrations/${HTTPAPIIntegration}"
 
+  NodeInfoDocumentAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HTTPAPI
+      RouteKey: "GET /nodeinfo/{version}"
+      Target: !Sub "integrations/${HTTPAPIIntegration}"
+
+  GetATProtoXRPCRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HTTPAPI
+      RouteKey: "GET /xrpc/{nsid}"
+      Target: !Sub "integrations/${HTTPAPIIntegration}"
+
+  PostATProtoXRPCRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HTTPAPI
+      RouteKey: "POST /xrpc/{nsid}"
+      Target: !Sub "integrations/${HTTPAPIIntegration}"
+
+  GetUserAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HTTPAPI
+      RouteKey: "GET /users/{id}"
+      Target: !Sub "integrations/${HTTPAPIIntegration}"
+
+  PostUserInboxAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HTTPAPI
+      RouteKey: "POST /users/{id}/inbox"
+      Target: !Sub "integrations/${HTTPAPIIntegration}"
+
+  GetUserOutboxAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HTTPAPI
+      RouteKey: "GET /users/{id}/outbox"
+      Target: !Sub "integrations/${HTTPAPIIntegration}"
+
+  GetUserOutboxContentsAPIRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HTTPAPI
+      RouteKey: "GET /users/{id}/outbox/contents"
+      Target: !Sub "integrations/${HTTPAPIIntegration}"
+
+  # CloudFront Distribution
   Distribution:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
         Origins:
-          - DomainName: !Sub "${API}.execute-api.${AWS::Region}.amazonaws.com"
+          - DomainName: !Sub "${HTTPAPI}.execute-api.${AWS::Region}.amazonaws.com"
             Id: HTTPOrigin
-            OriginPath: !Sub "/${APIStage}"
+            OriginPath: !Sub "/${HTTPAPIStage}"
             CustomOriginConfig:
               HTTPPort: 80
               HTTPSPort: 443
@@ -354,7 +477,9 @@ Resources:
             FunctionAssociations:
               - EventType: viewer-request
                 FunctionARN: !Ref CloudFrontFunction
-
+  
+  # This function rewrites the url path so it can be correctly routed to the
+  # WebSocket endpoint.
   CloudFrontFunction:
     Type: AWS::CloudFront::Function
     Properties:

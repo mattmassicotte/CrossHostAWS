@@ -13,7 +13,7 @@ let package = Package(
 		.package(url: "https://github.com/hummingbird-project/hummingbird.git", from: "2.0.0"),
 		.package(url: "https://github.com/hummingbird-project/hummingbird-lambda.git", from: "2.0.1"),
 		.package(url: "https://github.com/hummingbird-project/hummingbird-websocket.git", from: "2.6.0"),
-		.package(url: "https://github.com/mattmassicotte/CrossHost", branch: "main"),
+//		.package(url: "https://github.com/mattmassicotte/CrossHost", branch: "main"),
 		.package(url: "https://github.com/swift-server/async-http-client.git", from: "1.6.0"),
 		.package(url: "https://github.com/awslabs/swift-aws-lambda-events", from: "1.2.4"),
 		.package(url: "https://github.com/awslabs/swift-aws-lambda-runtime", from: "2.3.1"),
@@ -21,8 +21,14 @@ let package = Package(
 		.package(url: "https://github.com/mattmassicotte/JSONLD", branch: "main"),
 		.package(url: "https://github.com/mattmassicotte/HTTPSignature", branch: "main"),
 		.package(url: "https://github.com/mattmassicotte/ATAT", branch: "main"),
+        .package(url: "https://github.com/soto-project/soto.git", from: "7.0.0"),
+
+        .package(path: "/Users/matt/Developer/CrossHost"),
 	],
 	targets: [
+        .target(
+            name: "Shared"
+        ),
 		.executableTarget(
 			name: "CrossHostAWS",
 			dependencies: [
@@ -41,16 +47,33 @@ let package = Package(
 		.executableTarget(
 			name: "CrossHostWS",
 			dependencies: [
+                "Shared",
 				.product(name: "AWSLambdaRuntime", package: "swift-aws-lambda-runtime"),
 				.product(name: "AWSLambdaEvents", package: "swift-aws-lambda-events"),
 				"CrossHost",
 				.product(name: "AsyncHTTPClient", package: "async-http-client"),
+                .product(name: "SotoDynamoDB", package: "soto"),
+                .product(name: "SotoSQS", package: "soto"),
 			],
 		),
+        .executableTarget(
+            name: "CrossHostEvent",
+            dependencies: [
+                "Shared",
+                .product(name: "AWSLambdaRuntime", package: "swift-aws-lambda-runtime"),
+                .product(name: "AWSLambdaEvents", package: "swift-aws-lambda-events"),
+                "CrossHost",
+                .product(name: "AsyncHTTPClient", package: "async-http-client"),
+                .product(name: "SotoDynamoDB", package: "soto"),
+                .product(name: "SotoSQS", package: "soto"),
+                .product(name: "SotoApiGatewayManagementApi", package: "soto"),
+            ],
+        ),
 		.testTarget(
 			name: "CrossHostAWSTests",
 			dependencies: [
 				"CrossHostAWS",
+                "ATAT",
 			]
 		)
 	]

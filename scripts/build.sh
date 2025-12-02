@@ -21,3 +21,11 @@ pushd ".build/lambda/CrossHostWSLambda"
 ln -s "CrossHostWSLambda" "bootstrap"
 zip --symlinks CrossHostWSLambda.zip *
 popd
+
+# prepare event lambda
+mkdir -p ".build/lambda/CrossHostEventLambda"
+cp ".build/release/CrossHostEvent" ".build/lambda/CrossHostEventLambda/CrossHostEventLambda"
+pushd ".build/lambda/CrossHostEventLambda"
+ln -s "CrossHostEventLambda" "bootstrap"
+zip --symlinks CrossHostEventLambda.zip *
+popd

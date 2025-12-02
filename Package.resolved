@@ -1,5 +1,5 @@
 {
-  "originHash" : "3c4af3b046bc3870f5575ae793160649ee2071ba70c856e210290d7e9930071a",
+  "originHash" : "d816517ba4180eb41a80e0a5b07bf4b8c6e38511065626a0ee78f5a71b69acb6",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/thecoolwinter/CBOR",
       "state" : {
-        "revision" : "3484328675464b69553221ea5634412db36a0d4a",
-        "version" : "1.1.1"
+        "revision" : "f0c4cb21ec8cf403a11b3af55f1e548ab75d24f1",
+        "version" : "1.1.2"
       }
     },
     {
@@ -35,15 +35,6 @@
       "state" : {
         "revision" : "e1caa19077dda4b00441142ef57da3db02acd466",
         "version" : "1.4.2"
-      }
-    },
-    {
-      "identity" : "crosshost",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/mattmassicotte/CrossHost",
-      "state" : {
-        "branch" : "main",
-        "revision" : "c4af5be897fe81e4a20e16581e70c8f0e63e0e61"
       }
     },
     {
@@ -83,6 +74,15 @@
       }
     },
     {
+      "identity" : "jmespath.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/jmespath/jmespath.swift.git",
+      "state" : {
+        "revision" : "3877a5060e85ae33e3b9fe51ab581784f65ec80e",
+        "version" : "1.0.3"
+      }
+    },
+    {
       "identity" : "jsonld",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mattmassicotte/JSONLD",
@@ -98,6 +98,24 @@
       "state" : {
         "branch" : "main",
         "revision" : "9a6c58febd924b463acee04da8c47367bc6be6a8"
+      }
+    },
+    {
+      "identity" : "soto",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/soto-project/soto.git",
+      "state" : {
+        "revision" : "bdfcc97e2472061ddf3035e74aec57245a55396f",
+        "version" : "7.10.0"
+      }
+    },
+    {
+      "identity" : "soto-core",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/soto-project/soto-core.git",
+      "state" : {
+        "revision" : "6ed8bfde45bbee4c290dff732b05a2c6f0b8daf8",
+        "version" : "7.9.0"
       }
     },
     {
@@ -141,8 +159,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/awslabs/swift-aws-lambda-events",
       "state" : {
-        "revision" : "213b75d6405935398a05a5ed74a5fd6a80ff0983",
-        "version" : "1.2.4"
+        "revision" : "f5c173c557478f0442bf4fd18603f15e071c66ec",
+        "version" : "1.3.0"
       }
     },
     {
@@ -267,8 +285,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-nio-ssl.git",
       "state" : {
-        "revision" : "36b48956eb6c0569215dc15a587b491d2bb36122",
-        "version" : "2.32.0"
+        "revision" : "385f5bd783ffbfff46b246a7db7be8e4f04c53bd",
+        "version" : "2.33.0"
       }
     },
     {
